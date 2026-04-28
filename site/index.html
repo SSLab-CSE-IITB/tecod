@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>We built a system that makes enterprise SQL generation reliably accurate — without fine-tuning</title>
+  <meta name="description" content="TeCoD (Template Constrained Decoding) achieves ~90% Text-to-SQL accuracy on recurring enterprise queries — up to 36% better than in-context learning, with 2.2× lower latency. By Smit Jivani, Sarvam Maheshwari & Sunita Sarawagi, IIT Bombay.">
+  <meta name="author" content="Smit Jivani, Sarvam Maheshwari, Sunita Sarawagi">
+
+  <!-- Open Graph (LinkedIn, Facebook, Slack, WhatsApp previews) -->
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="We built a system that makes enterprise SQL generation reliably accurate — without fine-tuning">
+  <meta property="og:description" content="TeCoD achieves ~90% Text-to-SQL accuracy on recurring enterprise queries — up to 36% better than in-context learning, with 2.2× lower latency. No fine-tuning required.">
+  <meta property="og:url" content="https://sslab-cse-iitb.github.io/tecod">
+  <meta property="og:site_name" content="TeCoD — IIT Bombay">
+  <meta property="article:author" content="Smit Jivani, Sarvam Maheshwari, Sunita Sarawagi">
+  <meta property="article:published_time" content="2025-12-01">
+
+  <!-- Twitter / X Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="We built a system that makes enterprise SQL generation reliably accurate — without fine-tuning">
+  <meta name="twitter:description" content="TeCoD achieves ~90% Text-to-SQL accuracy on recurring enterprise queries — up to 36% better than in-context learning, with 2.2× lower latency. No fine-tuning required.">
+  <meta name="twitter:image" content="https://sslab-cse-iitb.github.io/tecod/query-dist.png">
+
+  <!-- OG image for rich link previews -->
+  <meta property="og:image" content="https://sslab-cse-iitb.github.io/tecod/query-dist.png">
+  <meta property="og:image:alt" content="Bar chart showing that over 50% of enterprise SQL queries share a recurring template structure">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="800">
+
+  <!-- Favicon: database emoji rendered as SVG -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗄️</text></svg>">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://sslab-cse-iitb.github.io/tecod">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-text-primary: #1a1a1a;
+      --color-text-secondary: #555;
+      --color-background-secondary: #f5f5f3;
+      --color-border-tertiary: rgba(0,0,0,0.12);
+      --color-border-secondary: rgba(0,0,0,0.25);
+      --color-border-primary: rgba(0,0,0,0.4);
+      --color-text-info: #185FA5;
+      --color-background-info: #E6F1FB;
+      --color-text-success: #3B6D11;
+      --color-background-success: #EAF3DE;
+      --color-text-warning: #854F0B;
+      --color-background-warning: #FAEEDA;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: 'SFMono-Regular', Consolas, monospace;
+      --border-radius-md: 8px;
+      --border-radius-lg: 12px;
+    }
+    body { font-family: var(--font-sans); background: #fff; color: var(--color-text-primary); }
+
+    .b { max-width: 720px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+    .tag { display: inline-block; font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 9px; border-radius: var(--border-radius-md); margin-right: 5px; }
+    .tag-blue { background: var(--color-background-info); color: var(--color-text-info); }
+    .tag-teal { background: #E1F5EE; color: #085041; }
+    .tag-amber { background: #FAEEDA; color: #633806; }
+    h1 { font-size: 34px; font-weight: 500; line-height: 1.2; margin: 1rem 0 0.25rem; color: var(--color-text-primary); }
+    .rule { border: none; border-top: 2px solid var(--color-text-primary); margin: 1rem 0 0; }
+    .byline { font-size: 13px; color: var(--color-text-secondary); margin: 0.75rem 0 0.25rem; }
+    .byline span { color: var(--color-text-primary); font-weight: 500; }
+    .reading-time { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 2rem; }
+    .lead { font-size: 19px; line-height: 1.7; color: var(--color-text-primary); margin-bottom: 2rem; padding-left: 1.25rem; border-left: 3px solid var(--color-text-primary); }
+    p.body { font-size: 16px; line-height: 1.8; color: var(--color-text-primary); margin-bottom: 1.2rem; }
+    .sec-label { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-text-secondary); margin: 2.75rem 0 0.4rem; }
+    h2 { font-size: 22px; font-weight: 500; color: var(--color-text-primary); margin: 0 0 1rem; }
+    .callout { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1.25rem 1.5rem; margin: 1.75rem 0; }
+    .callout-label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-secondary); margin-bottom: 0.5rem; }
+    .callout p { font-size: 15px; line-height: 1.7; color: var(--color-text-primary); margin: 0; }
+    .quote { border-left: 3px solid var(--color-border-primary); padding: 0 0 0 1.25rem; margin: 1.75rem 0; }
+    .quote p { font-size: 17px; font-style: italic; color: var(--color-text-secondary); line-height: 1.7; margin: 0; }
+    .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 1.5rem 0; }
+    .stat { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 1rem; }
+    .stat-n { font-size: 28px; font-weight: 500; color: var(--color-text-primary); }
+    .stat-l { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; line-height: 1.4; }
+    .step { display: flex; gap: 1rem; align-items: flex-start; padding: 1.1rem 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+    .step:last-child { border-bottom: none; }
+    .step-num { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); min-width: 20px; padding-top: 2px; }
+    .step-head { font-size: 15px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; }
+    .step-body { font-size: 14px; line-height: 1.65; color: var(--color-text-secondary); }
+    .who-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 1.25rem 0; }
+    .who-card { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 0.9rem 1rem; }
+    .who-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; }
+    .who-body { font-size: 13px; color: var(--color-text-secondary); line-height: 1.55; }
+    .expand-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 6px 14px; background: transparent; margin: 0.5rem 0 1rem; }
+    .expand-btn:hover { background: var(--color-background-secondary); }
+    .deep-dive { display: none; margin-top: 0.5rem; }
+    .deep-dive.open { display: block; }
+    .deep-dive p { font-size: 15px; line-height: 1.75; color: var(--color-text-secondary); margin-bottom: 1rem; }
+    .deep-dive code { font-family: var(--font-mono); font-size: 13px; background: var(--color-background-secondary); padding: 2px 6px; border-radius: 4px; color: var(--color-text-primary); }
+    .code-block { font-family: var(--font-mono); font-size: 13px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 1rem 1.25rem; margin: 0.75rem 0 1rem; line-height: 1.7; color: var(--color-text-primary); overflow-x: auto; white-space: pre; }
+    .footer-rule { border: none; border-top: 0.5px solid var(--color-border-tertiary); margin: 3rem 0 1.5rem; }
+    .footer-text { font-size: 13px; color: var(--color-text-secondary); line-height: 1.6; }
+    a { color: var(--color-text-info); }
+    .quick-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 1.25rem 0 2rem; }
+    .ql { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: var(--border-radius-md); text-decoration: none; border: 0.5px solid var(--color-border-secondary); color: var(--color-text-primary); background: transparent; }
+    .ql:hover { background: var(--color-background-secondary); }
+    .ql.primary { background: var(--color-background-info); color: var(--color-text-info); border-color: #B5D4F4; }
+    .ql.primary:hover { opacity: 0.85; }
+    .insight-box { background: var(--color-background-secondary); border-left: 3px solid var(--color-text-primary); border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0; padding: 1rem 1.25rem; margin: 1.75rem 0; }
+    .insight-label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-secondary); margin-bottom: 0.4rem; }
+    .insight-text { font-size: 16px; font-weight: 500; color: var(--color-text-primary); line-height: 1.5; margin: 0; }
+    .fig-block { margin: 1.75rem 0; }
+    .fig-block img { width: 100%; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-tertiary); display: block; }
+    .fig-caption { font-size: 13px; color: var(--color-text-secondary); line-height: 1.55; margin-top: 0.6rem; }
+    .fig-caption strong { color: var(--color-text-primary); font-weight: 500; }
+    .example-block { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; margin: 1.5rem 0; }
+    .example-row { padding: 0.9rem 1.25rem; border-bottom: 0.5px solid var(--color-border-tertiary); }
+    .example-row:last-child { border-bottom: none; }
+    .example-row-label { font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: var(--color-text-secondary); margin-bottom: 0.4rem; }
+    .example-row-text { font-size: 15px; color: var(--color-text-primary); line-height: 1.6; }
+    .example-row-code { font-family: var(--font-mono); font-size: 13px; color: var(--color-text-primary); line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+    .slot { color: #854F0B; background: #FAEEDA; padding: 1px 5px; border-radius: 3px; font-style: normal; }
+    .filled { color: #0F6E56; background: #E1F5EE; padding: 1px 5px; border-radius: 3px; font-style: normal; }
+    .bib-block { position: relative; background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 1rem 1.25rem; padding-right: 5rem; margin: 1rem 0; }
+    .bib-block pre { font-family: var(--font-mono); font-size: 12px; line-height: 1.7; color: var(--color-text-primary); white-space: pre-wrap; word-break: break-word; margin: 0; }
+    .copy-btn { position: absolute; top: 10px; right: 10px; font-size: 12px; padding: 4px 10px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-secondary); cursor: pointer; }
+    .copy-btn:hover { background: var(--color-background-secondary); }
+    @media (max-width: 500px) {
+      .stat-row { grid-template-columns: 1fr 1fr; }
+      .who-grid { grid-template-columns: 1fr; }
+      h1 { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+<div class="b">
+
+  <div>
+    <span class="tag tag-blue">research</span>
+    <span class="tag tag-teal">text-to-sql</span>
+    <span class="tag tag-amber">llm inference</span>
+  </div>
+
+  <h1>We built a system that makes enterprise SQL generation reliably accurate — without fine-tuning</h1>
+  <hr class="rule">
+  <p class="byline">By <span>Smit Jivani, Sarvam Maheshwari &amp; Sunita Sarawagi</span> · IIT Bombay</p>
+  <p class="reading-time">Includes a technical deep dive for system builders</p>
+
+  <nav class="quick-links" aria-label="Quick links">
+    <a href="https://dl.acm.org/doi/10.1145/3769822" target="_blank" rel="noopener" class="ql primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Paper
+    </a>
+    <a href="https://github.com/SSLab-CSE-IITB/tecod" target="_blank" rel="noopener" class="ql">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
+      Code
+    </a>
+    <a href="#citation" class="ql">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 2v6c0 1.25.754 2 2 2h2c0 4-1 5-3 5m14-12c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 2v6c0 1.25.754 2 2 2h2c0 4-1 5-3 5"/></svg>
+      BibTeX
+    </a>
+  </nav>
+
+  <div style="border-left: 3px solid var(--color-border-secondary); padding: 0.75rem 1.25rem; margin: 1.5rem 0 2rem; background: var(--color-background-secondary); border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;">
+    <p style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-secondary); margin-bottom: 0.35rem;">tl;dr</p>
+    <p style="font-size: 15px; line-height: 1.65; color: var(--color-text-primary); margin: 0;">TeCoD converts past NL–SQL pairs into reusable templates and forces the LLM to follow the matched template during decoding — boosting Text-to-SQL accuracy from ~60% to ~90% on recurring queries, without any fine-tuning.</p>
+  </div>
+
+  <p class="lead">When we first looked at a large bank's query workload, something clicked: businesses ask the same questions over and over. That one observation became the foundation of TeCoD — and it changed how we think about making AI-powered databases actually reliable.</p>
+
+  <p class="body">Large language models have made it exciting to imagine a world where anyone can query a database just by typing a question. No SQL knowledge needed. Just ask, and get an answer.</p>
+  <p class="body">We've been working in this space for a while, and the honest reality is: it works beautifully on benchmarks and falls apart in production. When we looked at accuracy broken down per database schema — not averaged across schemas — we saw numbers as low as 20–30% for some enterprise databases. For a system that's supposed to replace manual querying, that's not good enough.</p>
+
+  <p class="sec-label" id="observation">what we observed</p>
+  <h2>The problem with existing approaches — and a pattern we couldn't ignore</h2>
+  <p class="body">The two standard options for improving Text-to-SQL are fine-tuning and in-context learning (ICL). Fine-tuning is expensive, needs a large labeled dataset upfront, and causes models to forget their general knowledge. ICL — slipping a few related examples into the prompt — is cheap and flexible, but it keeps disappointing us.</p>
+
+  <div class="callout">
+    <div class="callout-label">a telling example</div>
+    <p>We found cases where the LLM was shown an in-context SQL example differing from the correct answer by a single constant — say, a city name — and still generated the wrong SQL. The model couldn't reliably extract even that minimal signal from the context.</p>
+  </div>
+
+  <p class="body">While analyzing a real query workload from a large bank, we noticed something that reframed our thinking entirely. Business queries aren't random. Executives ask structurally identical questions again and again — same joins, same filters, same aggregations — just with different values. "Revenue in Q3" becomes "Revenue in Q4." "Customers in Berlin" becomes "Customers in Munich." The natural language varies, but the SQL skeleton stays the same.</p>
+  <p class="body">When we modeled this sequentially, we found that more than 50% of queries would find a matching structural template in previously seen queries. That's a massive opportunity. If we could reliably recognize these recurring patterns and exploit them, we could make SQL generation dramatically more accurate for the majority of real-world queries.</p>
+
+  <div class="insight-box">
+    <div class="insight-label">Key observation</div>
+    <p class="insight-text">Over 50% of enterprise queries share an existing SQL structure — only the values change. TeCoD turns that repetition into reliability.</p>
+  </div>
+
+  <div class="fig-block">
+    <img src="query-dist.png" alt="Bar chart showing query distribution per template in a large bank's workload">
+    <p class="fig-caption"><strong>Enterprise queries repeat heavily.</strong> Query distribution from a large bank's workload (5,391 total queries). ~30% of queries belong to a template seen only once, but the majority share a template with prior queries — meaning TeCoD can provide high-accuracy SQL for the bulk of real analytical workloads.</p>
+  </div>
+
+  <p class="sec-label" id="approach">our approach</p>
+  <h2>Introducing TeCoD: Template Constrained Decoding</h2>
+  <p class="body">The core idea is simple: convert your previously seen and verified NL-SQL pairs into parameterized templates — SQLs with the specific literal values (strings, numbers) replaced by typed slots. When a new user question structurally matches a stored template, force the LLM to follow that template during generation. Don't just suggest it. Enforce it at the decoding level. And when no template matches — for novel or one-off queries — TeCoD simply falls back to standard in-context learning, so nothing breaks.</p>
+
+  <div style="margin: 1.5rem 0 0.5rem;">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div><div class="step-head">Template extraction</div><div class="step-body">Each verified SQL in your workload is parsed and its literal values (constants, strings, numbers) are extracted and replaced with typed slots. The result is a parameterized SQL template shared by any query that follows the same structure.</div></div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div><div class="step-head">Annotation with synthetic paraphrases</div><div class="step-body">We use an LLM to generate multiple alternative phrasings of each question, each corresponding to the same template with different literal values. These are masked and embedded to build a rich searchable index.</div></div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div><div class="step-head">Template matching via NLI</div><div class="step-body">When a user asks a question, we use a fine-tuned natural language inference model — not just embedding cosine similarity — to decide if the question's SQL would follow any stored template. This is the most critical step. A wrong match guarantees a wrong SQL, so we invested heavily here.</div></div>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div><div class="step-head">Grammar-constrained decoding</div><div class="step-body">If a template is matched, the LLM generates only the slot values under hard grammatical constraints — it cannot deviate from the template structure. If no match is found, we fall back to standard in-context learning.</div></div>
+    </div>
+  </div>
+
+  <p class="sec-label" style="margin-top: 2rem;">a concrete example</p>
+  <h2>TeCoD in action</h2>
+  <p class="body">Here's what the system actually does. A user asks a new question. TeCoD recognises it matches a stored template — same structure, different values — and fills in only the slots.</p>
+
+  <div class="example-block">
+    <div class="example-row">
+      <div class="example-row-label">Stored workload — past verified query</div>
+      <div class="example-row-text">Please tell me the total number of male clients in Prague whose average salary exceeds 8200.</div>
+    </div>
+    <div class="example-row" style="background: var(--color-background-secondary);">
+      <div class="example-row-label">Extracted template — literals replaced with slots</div>
+      <div class="example-row-code">SELECT COUNT(T1.client_id) FROM client AS T1
+  INNER JOIN district AS T2
+    ON T1.district_id = T2.district_id
+WHERE T1.gender = <em class="slot">[string]</em>
+  AND T2.A3    = <em class="slot">[string]</em>  <span style="font-family: var(--font-sans); font-size: 12px; color: var(--color-text-secondary);">— district name</span>
+  AND T2.A11   > <em class="slot">[number]</em>  <span style="font-family: var(--font-sans); font-size: 12px; color: var(--color-text-secondary);">— average salary</span></div>
+    </div>
+    <div class="example-row">
+      <div class="example-row-label">New user question</div>
+      <div class="example-row-text">How many male customers living in North Bohemia have an average salary greater than 8000?</div>
+    </div>
+    <div class="example-row" style="background: var(--color-background-secondary);">
+      <div class="example-row-label">Generated SQL — template enforced, slots filled by LLM</div>
+      <div class="example-row-code">SELECT COUNT(T1.client_id) FROM client AS T1
+  INNER JOIN district AS T2
+    ON T1.district_id = T2.district_id
+WHERE T1.gender = <em class="filled">'M'</em>
+  AND T2.A3    = <em class="filled">'North Bohemia'</em>
+  AND T2.A11   > <em class="filled">8000</em></div>
+    </div>
+  </div>
+
+  <p class="body">The LLM never had to invent the query structure — it only had to identify three values from the question. That's why accuracy jumps so dramatically.</p>
+
+  <button class="expand-btn" id="toggle-btn" onclick="var d=document.getElementById('deep');var open=d.classList.toggle('open');document.getElementById('toggle-btn').textContent=open?'Hide technical details ↑':'Go deeper: how constrained decoding works ↓'">Go deeper: how constrained decoding works ↓</button>
+
+  <div class="fig-block">
+    <img src="system-overview.png" alt="System architecture diagram showing TeCoD's preparation and inference pipelines">
+    <p class="fig-caption"><strong>TeCoD system overview.</strong> The preparation pipeline (top) converts labeled NL-SQL pairs into templates, generates synthetic paraphrases, and indexes them for retrieval. The inference pipeline (bottom) matches each user query to a template via NLI and either runs template-constrained decoding or falls back to standard ICL generation.</p>
+  </div>
+
+  <div class="deep-dive" id="deep">
+    <p>The "force the template" part is where we had to do real engineering work. Existing grammar-constrained decoding (GCD) libraries like Outlines or Transformer-CFG are general-purpose — they let you define any grammar and mask invalid tokens at each decoding step. That works, but it's slow, and it's sensitive to formatting.</p>
+    <p>We hit two problems. First, style mismatch: each LLM has its own SQL formatting preferences — keyword casing, whitespace, alias conventions. A fixed string template like <code>"WHERE Name = [string] LIMIT [number]"</code> would confuse models that prefer lowercase keywords or different spacing. We solved this by converting templates into flexible grammars that allow any syntactically equivalent surface form.</p>
+    <p>Second, latency: standard GCD runs the grammar checker at every single decoding step, even for the parts of the SQL that never change across queries. That's wasteful. We designed a two-phase approach:</p>
+    <div class="code-block">Phase 1 (offline, once per template):
+  Run full GCD on the template → get LLM-aligned token IDs
+  Partition into static segments + literal slots
+
+Phase 2 (inference, per query):
+  Prepend static token IDs (reuse KV-cache)
+  Run GCD only for each literal slot (string or number regex)
+  Concatenate → final SQL</div>
+    <p>One subtle issue: LLM tokenizers sometimes create tokens that straddle partition boundaries (e.g., a single token <code>"1;"</code> spanning a number literal and the following semicolon). We handle this by including "boundary tokens" as left and right context when generating each literal, preventing over-masking. Dropping these context tokens caused accuracy to fall by over 10% in some models.</p>
+    <p>This two-phase approach achieves 1.5–2.3× lower latency than standard GCD, and for some models on Spider, even beats unconstrained generation speed. In short: by skipping grammar checks for the static parts of the SQL and only running them for the literal slots, TeCoD gets the accuracy benefits of constrained decoding without the usual latency cost.</p>
+  </div>
+
+  <p class="sec-label" id="results">results</p>
+  <h2>What we found</h2>
+  <p class="body">We tested TeCoD on the BIRD and Spider benchmarks across eight LLMs — from small 1B models to 15B fine-tuned specialists to state-of-the-art Text-to-SQL models. The results were consistent:</p>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-n">~90%</div>
+      <div class="stat-l">Execution accuracy on matched queries (vs ~60% with ICL)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">+36%</div>
+      <div class="stat-l">Peak gain over ICL on BIRD benchmark</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">2.2×</div>
+      <div class="stat-l">Lower latency vs standard constrained decoding on matched queries</div>
+    </div>
+  </div>
+
+  <p class="body">One result we found particularly meaningful: smaller models like Granite-3.1-8B, when paired with TeCoD, matched or exceeded the performance of much larger baselines like XiYanSQL QwenCoder-14B using only ICL. You can get the accuracy of a big expensive model with a small, fast, deployable one — if you use the right inference strategy.</p>
+
+  <div class="quote">
+    <p>TeCoD doesn't make every model better at everything. It makes every model dramatically better at the queries your users actually ask most often.</p>
+  </div>
+
+  <p class="sec-label" id="who">who should use this</p>
+  <h2>Is TeCoD right for your use case?</h2>
+  <p class="body">TeCoD requires a labeled workload to seed the template library. It's designed for enterprises that already have — or are actively collecting — verified NL-SQL pairs. If that's you, here's where it fits well:</p>
+
+  <div class="who-grid">
+    <div class="who-card">
+      <div class="who-title">Business intelligence &amp; reporting</div>
+      <div class="who-body">Analysts who run variants of the same reports regularly. TeCoD is tailor-made for this.</div>
+    </div>
+    <div class="who-card">
+      <div class="who-title">NL interfaces on private databases</div>
+      <div class="who-body">Your database is unknown to frontier models. Accumulated workload becomes your competitive advantage.</div>
+    </div>
+    <div class="who-card">
+      <div class="who-title">Latency-sensitive deployments</div>
+      <div class="who-body">The speed gains are real — especially valuable if you're replacing a reasoning model with a smaller one.</div>
+    </div>
+    <div class="who-card">
+      <div class="who-title">Teams that can't afford fine-tuning</div>
+      <div class="who-body">No retraining, no forgetting. Templates can be added incrementally as new verified pairs arrive.</div>
+    </div>
+  </div>
+
+  <p class="body">If your workload is mostly exploratory — users asking genuinely novel, one-off questions — TeCoD will still help where it can match, and fall back gracefully where it can't. But the highest gains come when your workload has structure and repetition, which in our experience describes most enterprise analytics.</p>
+
+  <p class="sec-label">what's next</p>
+  <h2>Where we want to take this</h2>
+  <p class="body">The current version masks only literal values. A natural extension is to allow more flexible template representations — masking clauses, subexpressions, or even structural variations in joins. We're also interested in hybrid approaches that smooth the boundary between template-based generation and fully flexible generation for tail queries.</p>
+  <p class="body">More broadly, we think the principle here — identify recurring patterns in a workload, compile them into structural constraints, enforce them during generation — is likely applicable beyond SQL to other structured generation tasks. That's something we're actively thinking about.</p>
+  <p class="body">The full methodology is in the paper; the code is on GitHub. We'd love to hear from anyone building in this space.</p>
+
+  <div style="background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1.75rem 2rem; margin: 2.5rem 0; display: flex; flex-direction: column; gap: 1rem;">
+    <p style="font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-text-secondary); margin: 0;">read the work</p>
+    <p style="font-size: 17px; font-weight: 500; color: var(--color-text-primary); margin: 0; line-height: 1.4;">Explore TeCoD — the paper, the code, and everything in between.</p>
+    <p style="font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; margin: 0;">Whether you want to dig into the full methodology, reproduce our results, or integrate TeCoD into your own Text-to-SQL pipeline — both resources are open and available.</p>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 0.25rem;">
+      <a href="https://dl.acm.org/doi/10.1145/3769822" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 500; color: var(--color-text-info); background: #E6F1FB; border-radius: var(--border-radius-md); padding: 9px 18px; text-decoration: none; border: 0.5px solid #B5D4F4;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Read the paper (ACM)
+      </a>
+      <a href="https://github.com/SSLab-CSE-IITB/tecod" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 500; color: var(--color-text-primary); background: #fff; border-radius: var(--border-radius-md); padding: 9px 18px; text-decoration: none; border: 0.5px solid var(--color-border-secondary);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        View code on GitHub
+      </a>
+    </div>
+  </div>
+
+  <section id="citation">
+    <p class="sec-label">citation</p>
+    <h2>Cite this work</h2>
+    <p class="body" style="margin-bottom: 0.75rem;">If you use TeCoD in your research, please cite:</p>
+    <div class="bib-block">
+      <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('bibtex').innerText).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)})">Copy</button>
+      <pre id="bibtex">@article{10.1145/3769822,
+  author    = {Jivani, Smit and Maheshwari, Sarvam and Sarawagi, Sunita},
+  title     = {Reliable Answers for Recurring Questions: Boosting
+               Text-to-SQL Accuracy with Template Constrained Decoding},
+  year      = {2025},
+  journal   = {Proc. ACM Manag. Data},
+  volume    = {3},
+  number    = {6},
+  articleno = {357},
+  numpages  = {26},
+  month     = dec,
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  doi       = {10.1145/3769822},
+  url       = {https://doi.org/10.1145/3769822},
+  keywords  = {constrained generation, partitioned decoding,
+               structured code generation, text-to-sql}
+}</pre>
+    </div>
+  </section>
+
+  <hr class="footer-rule">
+
+  <p class="sec-label" style="margin-top: 3rem;">authors</p>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0.75rem 0 2rem;">
+
+    <div style="border: 0.5px solid rgba(0,0,0,0.08); border-radius: var(--border-radius-md); padding: 0.85rem 1rem;">
+      <p style="font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 2px;">Smit Jivani</p>
+      <p style="font-size: 12px; color: var(--color-text-secondary); margin-bottom: 8px;">IIT Bombay</p>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <a href="https://linkedin.com/in/smitjivani" target="_blank" rel="noopener" style="font-size: 12px; color: var(--color-text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          @smitjivani
+        </a>
+        <a href="https://x.com/smit_jivani" target="_blank" rel="noopener" style="font-size: 12px; color: var(--color-text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          @smit_jivani
+        </a>
+        <a href="https://github.com/smitjivani" target="_blank" rel="noopener" style="font-size: 12px; color: var(--color-text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          @smitjivani
+        </a>
+      </div>
+    </div>
+
+    <div style="border: 0.5px solid rgba(0,0,0,0.08); border-radius: var(--border-radius-md); padding: 0.85rem 1rem;">
+      <p style="font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 2px;">Sarvam Maheshwari</p>
+      <p style="font-size: 12px; color: var(--color-text-secondary); margin-bottom: 8px;">IIT Bombay</p>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <a href="https://linkedin.com/in/sarvam-maheshwari" target="_blank" rel="noopener" style="font-size: 12px; color: var(--color-text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          @sarvam-maheshwari
+        </a>
+        <a href="https://x.com/sarvam31" target="_blank" rel="noopener" style="font-size: 12px; color: var(--color-text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          @sarvam31
+        </a>
+        <a href="https://github.com/sarvam31" target="_blank" rel="noopener" style="font-size: 12px; color: var(--color-text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          @sarvam31
+        </a>
+      </div>
+    </div>
+
+    <div style="border: 0.5px solid rgba(0,0,0,0.08); border-radius: var(--border-radius-md); padding: 0.85rem 1rem;">
+      <p style="font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 2px;">Sunita Sarawagi</p>
+      <p style="font-size: 12px; color: var(--color-text-secondary); margin-bottom: 8px;">Professor, IIT Bombay</p>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <a href="mailto:sunita@iitb.ac.in" style="font-size: 12px; color: var(--color-text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          sunita@iitb.ac.in
+        </a>
+        <a href="https://scholar.google.com/citations?user=Hg4HmTAAAAAJ&hl=en" target="_blank" rel="noopener" style="font-size: 12px; color: var(--color-text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          Google Scholar
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <hr class="footer-rule">
+  <p class="footer-text"><em>Reliable Answers for Recurring Questions: Boosting Text-to-SQL Accuracy with Template Constrained Decoding</em><br>
+  Smit Jivani, Sarvam Maheshwari &amp; Sunita Sarawagi · IIT Bombay<br>
+  Proc. ACM Manag. Data, Vol. 3, No. 6 (SIGMOD), Article 357, December 2025<br>
+  <a href="https://doi.org/10.1145/3769822">doi.org/10.1145/3769822</a></p>
+
+</div>
+</body>
+</html>

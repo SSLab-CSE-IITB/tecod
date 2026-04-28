@@ -1,0 +1,3 @@
+[submodule "src/pdec"]
+	path = src/pdec
+	url = https://github.com/smitjivani/nlqtosql_common.git

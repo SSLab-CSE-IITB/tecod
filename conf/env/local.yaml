@@ -1,0 +1,24 @@
+# Local model example. Activate with either:
+#   python main.py --env local tecod
+#   TECOD_ENV=local python main.py tecod
+#
+# Tips:
+# - Set TECOD_MODEL_ID to try another local Hugging Face model.
+# - Set TECOD_NLI_MODEL to change the NLI reranker.
+# - Lower vectorsearch_top_k/nli_top_k for faster exploratory runs.
+# - Use -c overrides for one-off changes, e.g. -c tecod.icl_cnt=1.
+
+logging:
+  console_level: INFO
+  file_level: DEBUG
+  log_file: tecod_local.log
+  use_json_format: false
+
+tecod:
+  model_id: ${oc.env:TECOD_MODEL_ID,XGenerationLab/XiYanSQL-QwenCoder-14B-2504}
+  provider: local
+  temperature: 0.0
+  max_new_tokens: 4096
+  icl_cnt: 3
+  vectorsearch_top_k: 1000
+  nli_top_k: 30

@@ -1,0 +1,14 @@
+.venv/
+
+
+__pycache__/
+.ipynb_checkpoints/
+.pytest_cache/
+.vscode/
+
+/data/
+/data_*/
+
+# Log files
+*.log
+*.err

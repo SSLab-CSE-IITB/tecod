@@ -1,0 +1,69 @@
+# Base configuration. Values here are shared defaults; env files in
+# conf/env/ override them. Use local for the packaged local-model example
+# and openai for OpenAI-compatible APIs:
+#   python main.py --env local tecod
+#   python main.py --env openai tecod
+#   TECOD_ENV=openai python main.py tecod
+#   python main.py -c tecod.model_id=... tecod
+#
+# Precedence (highest wins): CLI -c overrides > env file > this file.
+
+defaults:
+  - _self_
+  - env@_global_: local
+  - override hydra/job_logging: disabled
+  - override hydra/hydra_logging: disabled
+root_dir: ${oc.env:TECOD_ROOT_DIR,.}
+data_dir: ${oc.env:TECOD_DATA_DIR,${root_dir}/data}
+db_path: ${oc.env:TECOD_DB_PATH,${root_dir}/data/database.sqlite}
+device: ${oc.env:TECOD_DEVICE,auto}
+
+# State file paths (relative to data_dir)
+state:
+  examples: examples.jsonl
+  templates: templates.jsonl
+  index: index.db
+  masked_questions: masked_questions.jsonl
+  compiled_templates: c_templs/
+  schema_prompt: schema.prompt
+
+# NLI Model Configuration
+# Default reranker used for template selection:
+# smitxxiv/Qwen3-Re4B-SQL-TeCoD-TMM
+nli:
+  model: ${oc.env:TECOD_NLI_MODEL,smitxxiv/Qwen3-Re4B-SQL-TeCoD-TMM}
+  method: mean  # Aggregation method: mean, max, min
+  device: ${oc.env:TECOD_NLI_DEVICE,""}
+
+# Embedding Model Configuration
+emb:
+  model: ${oc.env:TECOD_EMB_MODEL,Qwen/Qwen3-Embedding-4B}
+  device: ${oc.env:TECOD_EMB_DEVICE,""}
+  collection_name: questions
+  index_name: questions_index
+  emb_field_name: emb
+  masked_nlq_key: nlq_masked
+
+# TeCoD Generation Configuration
+tecod:
+  model_id: ${oc.env:TECOD_MODEL_ID,meta-llama/Llama-3.1-8B-Instruct}
+  provider: ${oc.env:TECOD_PROVIDER,local}
+  temperature: 0.0
+  max_new_tokens: 4096
+  api_key: ${oc.env:OPENAI_API_KEY,""}
+  base_url: ${oc.env:OPENAI_BASE_URL,""}
+  prompt_class: ${oc.env:TECOD_PROMPT_CLASS,""}
+  grammar_type: base_grammar
+  grammar_template_json_path: pdec/complete_sql_template.json
+  icl_cnt: 3                    # Number of in-context learning examples
+  vectorsearch_top_k: 1000      # Top-K for vector search
+  nli_top_k: 30                 # Top-K for NLI processing
+  sql_key: SQL
+  dialect: sqlite
+
+# Logging Configuration
+logging:
+  console_level: ${oc.env:TECOD_LOG_LEVEL,WARNING}
+  file_level: DEBUG
+  log_file: tecod.log
+  use_json_format: false

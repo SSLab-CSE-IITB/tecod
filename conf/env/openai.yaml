@@ -1,0 +1,34 @@
+# OpenAI-compatible API example.
+#
+# Routes generation through any provider that implements the OpenAI chat
+# completions spec. Activate with:
+#   python main.py --env openai tecod
+#   TECOD_ENV=openai python main.py tecod
+#
+# Supported providers include: OpenAI, vLLM, Ollama, Together, Groq,
+# LM Studio, and any other OpenAI-compatible endpoint.
+#
+# Tips:
+# - Set OPENAI_API_KEY for OpenAI-hosted endpoints.
+# - Set OPENAI_BASE_URL for compatible local/hosted endpoints.
+# - Set TECOD_MODEL_ID to switch models without editing this file.
+# - The NLI reranker still runs locally; set TECOD_NLI_MODEL to override it.
+# - GCD/base-GCD require local logits access; API runs should use icl, sgc,
+#   zs, or auto.
+
+logging:
+  console_level: WARNING
+  file_level: DEBUG
+  log_file: tecod_openai.log
+  use_json_format: false
+
+tecod:
+  model_id: ${oc.env:TECOD_MODEL_ID,gpt-4o-mini}
+  provider: openai
+  temperature: 0.0
+  max_new_tokens: 4096
+  api_key: ${oc.env:OPENAI_API_KEY,""}
+  base_url: ${oc.env:OPENAI_BASE_URL,""}
+  icl_cnt: 3
+  vectorsearch_top_k: 1000
+  nli_top_k: 30

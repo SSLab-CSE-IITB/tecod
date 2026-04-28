@@ -1,0 +1,9 @@
+# @package _global_
+
+# Bundled BIRD dev financial sample. Select with:
+#   python main.py -c +data=financial status
+#
+# TECOD_DATA_DIR and TECOD_DB_PATH still override these values for users who
+# prefer environment-based configuration.
+data_dir: ${oc.env:TECOD_DATA_DIR,${root_dir}/data/financial}
+db_path: ${oc.env:TECOD_DB_PATH,${root_dir}/examples/financial/financial.sqlite}
